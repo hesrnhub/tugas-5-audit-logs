@@ -12,4 +12,7 @@ export const authApi = {
 
   // GET /auth/me -> 200 { data: user }
   me: async () => (await api.get<{ data: User }>('/auth/me')).data.data,
+
+  // POST /auth/logout -> 200
+  logout: async () => api.post('/auth/logout'),
 };

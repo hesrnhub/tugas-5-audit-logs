@@ -8,10 +8,15 @@ export function Navbar() {
   const navigate = useNavigate();
   const notify = useToast();
 
-  const onLogout = () => {
-    logout();
-    notify('Anda telah logout.', 'info');
-    navigate('/');
+  const onLogout = async () => {
+    try {
+      await logout();
+      notify('Anda telah logout.', 'info');
+    } catch {
+      notify('Sesi lokal diakhiri, tetapi server tidak dapat mencatat logout.', 'error');
+    } finally {
+      navigate('/');
+    }
   };
 
   return (
@@ -23,6 +28,9 @@ export function Navbar() {
           {canCreateStall(user) && <NavLink to="/stalls/new">Tambah warung</NavLink>}
         </nav>
         <div className="nav-user">
+          {user?.role === 'admin' && (
+            <NavLink className="btn btn-ghost" to="/audit-logs">Audit log</NavLink>
+          )}
           {user ? (
             <>
               <Link to="/profile" className="user-chip" title="Lihat profil">

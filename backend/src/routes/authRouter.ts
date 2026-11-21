@@ -21,5 +21,9 @@ authRouter.get('/me', (req, res, next) => {
     // #swagger.security = [{ "BearerAuth": [] }]
     return authenticate(req, res, next);
 }, controller.getMe);
+authRouter.post('/logout', (req, res, next) => {
+    // #swagger.security = [{ "BearerAuth": [] }]
+    return authenticate(req, res, next);
+}, controller.logout);
 
 export { authRouter };

@@ -19,7 +19,7 @@ api.interceptors.request.use((config) => {
 
 // Response interceptor: 401 pada endpoint terlindungi berarti sesi habis/tidak valid.
 // Endpoint auth dikecualikan agar salah password tidak dianggap sesi habis.
-const AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/me'];
+const AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/me', '/auth/logout'];
 api.interceptors.response.use(
   (res) => res,
   (error) => {

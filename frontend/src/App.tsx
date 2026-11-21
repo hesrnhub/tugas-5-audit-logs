@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { Navbar } from './components/Navbar';
+import AuditLogsPage from './pages/AuditLogsPage';
 import LoginPage from './pages/LoginPage';
 import ProfilePage from './pages/ProfilePage';
 import RegisterPage from './pages/RegisterPage';
@@ -24,6 +25,7 @@ export default function App() {
 
           {/* Perlu login */}
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/audit-logs" element={<ProtectedRoute roles={['admin']}><AuditLogsPage /></ProtectedRoute>} />
 
           {/* Perlu login + role owner/admin */}
           <Route path="/stalls/new" element={<ProtectedRoute roles={['owner', 'admin']}><StallFormPage /></ProtectedRoute>} />

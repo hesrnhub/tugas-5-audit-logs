@@ -1,5 +1,6 @@
 import { and, avg, count, eq, sql } from 'drizzle-orm';
 import { getDb } from '../db/index.js';
+import type { DbExecutor } from './auditLogRepository.ts';
 import { reviews, stalls } from '../db/schema.js';
 
 export interface CreateReviewParams {
@@ -10,21 +11,21 @@ export interface CreateReviewParams {
 }
 
 export class ReviewRepository {
-    async findByStallAndUser(stallId: number, userId: number) {
-        const db = await getDb();
+    async findByStallAndUser(stallId: number, userId: number, executor?: DbExecutor) {
+        const db = executor ?? await getDb();
         const rows = await db.select().from(reviews)
             .where(and(eq(reviews.stallId, stallId), eq(reviews.userId, userId)));
         return rows[0];
     }
 
-    async create(params: CreateReviewParams) {
-        const db = await getDb();
+    async create(params: CreateReviewParams, executor?: DbExecutor) {
+        const db = executor ?? await getDb();
         const rows = await db.insert(reviews).output().values({ ...params, likeCount: 0 });
         return rows[0];
     }
 
-    async refreshStallSummary(stallId: number) {
-        const db = await getDb();
+    async refreshStallSummary(stallId: number, executor?: DbExecutor) {
+        const db = executor ?? await getDb();
         const stats = await db.select({
             total: count(),
             average: avg(sql<number>`cast(${reviews.rating} as decimal(10, 4))`),
