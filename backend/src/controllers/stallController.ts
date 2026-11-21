@@ -3,6 +3,7 @@ import { StallService } from '../services/stallService.ts';
 import { getUser } from '../middlewares/auth.ts';
 import { getValidated } from '../middlewares/validate.ts';
 import type { CreateStallInput, IdParam, StallQuery, UpdateStallInput } from '../schemas/stallSchema.ts';
+import { auditActorFromRequest } from '../services/auditLogService.ts';
 
 export class StallController {
     constructor(private readonly stallService: StallService = new StallService()) {}
@@ -27,21 +28,32 @@ export class StallController {
 
     createStall = async (req: Request, res: Response): Promise<void> => {
         const body = getValidated<CreateStallInput>(res, 'body');
-        const { id: ownerId } = getUser(req);
-        const stall = await this.stallService.createStall(ownerId, body);
+        const user = getUser(req);
+        const stall = await this.stallService.createStall(
+            user.id,
+            body,
+            auditActorFromRequest(req, user),
+        );
         res.status(201).json({ status: 'success', data: stall });
     };
 
     updateStall = async (req: Request, res: Response): Promise<void> => {
         const { id } = getValidated<IdParam>(res, 'params');
         const body = getValidated<UpdateStallInput>(res, 'body');
-        const stall = await this.stallService.updateStall(id, body, getUser(req));
+        const user = getUser(req);
+        const stall = await this.stallService.updateStall(
+            id,
+            body,
+            user,
+            auditActorFromRequest(req, user),
+        );
         res.status(200).json({ status: 'success', data: stall });
     };
 
-    deleteStall = async (_req: Request, res: Response): Promise<void> => {
+    deleteStall = async (req: Request, res: Response): Promise<void> => {
         const { id } = getValidated<IdParam>(res, 'params');
-        const stall = await this.stallService.deleteStall(id);
+        const user = getUser(req);
+        const stall = await this.stallService.deleteStall(id, auditActorFromRequest(req, user));
         res.status(200).json({ status: 'success', data: stall });
     };
 }

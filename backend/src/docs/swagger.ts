@@ -43,13 +43,6 @@ const doc = {
         },
         LikeInput: { $reviewId: 1, $userId: 2 },
         FlagUpdate: { $status: 'reviewed' },
-        AuditInput: {
-            $userId: 1,
-            $action: 'CREATE',
-            $targetTable: 'MENU_ITEMS',
-            $targetId: 1,
-            metadata: { source: 'api' },
-        },
         StallInput: {
             $name: 'Warung Baru',
             category: 'Nasi',

@@ -6,6 +6,7 @@ import { getDb } from './db/index.js';
 import { stallRouter } from './routes/stallRouter.ts';
 import { domainRouter } from './routes/domainRouter.ts';
 import { authRouter } from './routes/authRouter.ts';
+import { auditLogRouter } from './routes/auditLogRouter.ts';
 import { notFoundHandler } from './middlewares/notFound.ts';
 import { errorHandler } from './middlewares/errorHandler.ts';
 
@@ -47,6 +48,8 @@ app.get('/health', async (req: Request, res: Response) => {
 
 app.use('/api/v1/stalls', stallRouter);
 app.use('/api/v1/auth', authRouter);
+app.use('/api/audit-logs', auditLogRouter);
+app.use('/api/v1/audit-logs', auditLogRouter);
 app.use('/api/v1', domainRouter);
 
 app.use(notFoundHandler);

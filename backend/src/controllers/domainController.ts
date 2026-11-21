@@ -1,5 +1,7 @@
 import type { Request, Response } from 'express';
+import { getUser } from '../middlewares/auth.ts';
 import { DomainService } from '../services/domainService.ts';
+import { auditActorFromRequest } from '../services/auditLogService.ts';
 
 export class DomainController {
     constructor(private readonly service: DomainService = new DomainService()) {}
@@ -36,39 +38,34 @@ export class DomainController {
 
     getUsers = (_req: Request, res: Response) => this.execute(res, () => this.service.getUsers());
     createUser = (req: Request, res: Response) =>
-        this.execute(res, () => this.service.createUser(req.body), 201);
+        this.execute(res, () => this.service.createUser(req.body, auditActorFromRequest(req, getUser(req))), 201);
 
     getMenuItems = (_req: Request, res: Response) =>
         this.execute(res, () => this.service.getMenuItems());
     getMenuItem = (req: Request, res: Response) =>
         this.execute(res, () => this.service.getMenuItems(this.getId(req)));
     createMenuItem = (req: Request, res: Response) =>
-        this.execute(res, () => this.service.createMenuItem(req.body), 201);
+        this.execute(res, () => this.service.createMenuItem(req.body, auditActorFromRequest(req, getUser(req))), 201);
     updateMenuItem = (req: Request, res: Response) =>
-        this.execute(res, () => this.service.updateMenuItem(this.getId(req), req.body));
+        this.execute(res, () => this.service.updateMenuItem(this.getId(req), req.body, auditActorFromRequest(req, getUser(req))));
     deleteMenuItem = (req: Request, res: Response) =>
-        this.execute(res, () => this.service.deleteMenuItem(this.getId(req)));
+        this.execute(res, () => this.service.deleteMenuItem(this.getId(req), auditActorFromRequest(req, getUser(req))));
 
     getReviews = (_req: Request, res: Response) =>
         this.execute(res, () => this.service.getReviews());
     getReview = (req: Request, res: Response) =>
         this.execute(res, () => this.service.getReviews(this.getId(req)));
     createReview = (req: Request, res: Response) =>
-        this.execute(res, () => this.service.createReview(req.body), 201);
+        this.execute(res, () => this.service.createReview(req.body, auditActorFromRequest(req, getUser(req))), 201);
     deleteReview = (req: Request, res: Response) =>
-        this.execute(res, () => this.service.deleteReview(this.getId(req)));
+        this.execute(res, () => this.service.deleteReview(this.getId(req), auditActorFromRequest(req, getUser(req))));
 
     createLike = (req: Request, res: Response) =>
-        this.execute(res, () => this.service.createLike(req.body), 201);
+        this.execute(res, () => this.service.createLike(req.body, auditActorFromRequest(req, getUser(req))), 201);
     deleteLike = (req: Request, res: Response) =>
-        this.execute(res, () => this.service.deleteLike(this.getId(req)));
+        this.execute(res, () => this.service.deleteLike(this.getId(req), auditActorFromRequest(req, getUser(req))));
 
     getFlags = (_req: Request, res: Response) => this.execute(res, () => this.service.getFlags());
     updateFlag = (req: Request, res: Response) =>
-        this.execute(res, () => this.service.updateFlag(this.getId(req), req.body));
-
-    getAuditLogs = (_req: Request, res: Response) =>
-        this.execute(res, () => this.service.getAuditLogs());
-    createAuditLog = (req: Request, res: Response) =>
-        this.execute(res, () => this.service.createAuditLog(req.body), 201);
+        this.execute(res, () => this.service.updateFlag(this.getId(req), req.body, auditActorFromRequest(req, getUser(req))));
 }

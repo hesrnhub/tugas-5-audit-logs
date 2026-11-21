@@ -46,10 +46,4 @@ domainRouter.put('/flags/:id', (req, res) => {
 	return controller.updateFlag(req, res);
 });
 
-domainRouter.get('/audit', (req, res) => controller.getAuditLogs(req, res));
-domainRouter.post('/audit', (req, res) => {
-	// #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/AuditInput' } }
-	return controller.createAuditLog(req, res);
-});
-
 export { domainRouter };

@@ -2,12 +2,14 @@ import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
 import { promisify } from 'node:util';
 import {
     DomainRepository,
-    type NewAuditLog,
     type NewLike,
     type NewMenuItem,
     type NewReview,
     type NewUser,
 } from '../repositories/domainRepository.ts';
+import { getDb } from '../db/index.js';
+import { AuditLogRepository, type DbExecutor } from '../repositories/auditLogRepository.ts';
+import { createAuditEntry, type AuditActor } from './auditLogService.ts';
 
 const scrypt = promisify(scryptCallback);
 type UserRole = NewUser['role'];
@@ -40,13 +42,35 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 export class DomainService {
-    constructor(private readonly repository: DomainRepository = new DomainRepository()) {}
+    constructor(
+        private readonly repository: DomainRepository = new DomainRepository(),
+        private readonly auditRepository: AuditLogRepository = new AuditLogRepository(),
+    ) {}
+
+    private async auditedMutation<T extends { id: number }>(
+        actor: AuditActor,
+        action: string,
+        targetTable: string,
+        missingMessage: string,
+        mutation: (tx: DbExecutor) => Promise<T | undefined>,
+    ): Promise<T> {
+        const db = await getDb();
+        return db.transaction(async (tx) => {
+            const row = await mutation(tx);
+            if (!row) throw new Error(missingMessage);
+            await this.auditRepository.create(
+                createAuditEntry(actor, action, targetTable, row.id),
+                tx,
+            );
+            return row;
+        });
+    }
 
     async getUsers() {
         return this.repository.findUsers();
     }
 
-    async createUser(input: unknown) {
+    async createUser(input: unknown, actor: AuditActor) {
         const body = objectInput(input);
         const name = requiredString(body, 'name', 100);
         const email = requiredString(body, 'email', 150);
@@ -55,14 +79,20 @@ export class DomainService {
         if (password.length < 8) invalidInput();
         const role = body.role;
         if (role !== 'admin' && role !== 'owner' && role !== 'customer') invalidInput();
+        const passwordHash = await hashPassword(password);
 
-        const user = await this.repository.createUser({
-            name,
-            email,
-            role: role as UserRole,
-            passwordHash: await hashPassword(password),
-        });
-        if (!user) throw new Error('USER_NOT_FOUND');
+        const user = await this.auditedMutation(
+            actor,
+            'CREATE_USER',
+            'USERS',
+            'USER_NOT_FOUND',
+            async (tx) => this.repository.createUser({
+                name,
+                email,
+                role: role as UserRole,
+                passwordHash,
+            }, tx),
+        );
         const { passwordHash: _passwordHash, ...publicUser } = user;
         return publicUser;
     }
@@ -73,7 +103,7 @@ export class DomainService {
         return id === undefined ? items : items[0];
     }
 
-    async createMenuItem(input: unknown) {
+    async createMenuItem(input: unknown, actor: AuditActor) {
         const body = objectInput(input);
         const menuItem = {
             stallId: positiveInteger(body.stallId),
@@ -84,10 +114,16 @@ export class DomainService {
         if (!Number.isInteger(menuItem.price) || menuItem.price < 0 || typeof menuItem.isAvailable !== 'boolean') {
             invalidInput();
         }
-        return this.repository.createMenuItem(menuItem as NewMenuItem);
+        return this.auditedMutation(
+            actor,
+            'CREATE_MENU',
+            'MENU_ITEMS',
+            'MENU_ITEM_CREATE_FAILED',
+            (tx) => this.repository.createMenuItem(menuItem as NewMenuItem, tx),
+        );
     }
 
-    async updateMenuItem(id: number, input: unknown) {
+    async updateMenuItem(id: number, input: unknown, actor: AuditActor) {
         const body = objectInput(input);
         const update: Partial<NewMenuItem> = {};
         if (body.stallId !== undefined) update.stallId = positiveInteger(body.stallId);
@@ -102,15 +138,23 @@ export class DomainService {
             update.isAvailable = body.isAvailable;
         }
         if (Object.keys(update).length === 0) invalidInput();
-        const item = await this.repository.updateMenuItem(id, update);
-        if (!item) throw new Error('MENU_ITEM_NOT_FOUND');
-        return item;
+        return this.auditedMutation(
+            actor,
+            'UPDATE_MENU',
+            'MENU_ITEMS',
+            'MENU_ITEM_NOT_FOUND',
+            (tx) => this.repository.updateMenuItem(id, update, tx),
+        );
     }
 
-    async deleteMenuItem(id: number) {
-        const item = await this.repository.removeMenuItem(id);
-        if (!item) throw new Error('MENU_ITEM_NOT_FOUND');
-        return item;
+    async deleteMenuItem(id: number, actor: AuditActor) {
+        return this.auditedMutation(
+            actor,
+            'DELETE_MENU',
+            'MENU_ITEMS',
+            'MENU_ITEM_NOT_FOUND',
+            (tx) => this.repository.removeMenuItem(id, tx),
+        );
     }
 
     async getReviews(id?: number) {
@@ -119,70 +163,74 @@ export class DomainService {
         return id === undefined ? items : items[0];
     }
 
-    async createReview(input: unknown) {
+    async createReview(input: unknown, actor: AuditActor) {
         const body = objectInput(input);
         const rating = Number(body.rating);
         if (!Number.isInteger(rating) || rating < 1 || rating > 5) invalidInput();
         const comment = body.comment;
         if (comment !== undefined && comment !== null && typeof comment !== 'string') invalidInput();
-        return this.repository.createReview({
-            stallId: positiveInteger(body.stallId),
-            userId: positiveInteger(body.userId),
-            rating,
-            comment: (comment as string | null | undefined) ?? null,
-        } as NewReview);
+        return this.auditedMutation(
+            actor,
+            'CREATE_REVIEW',
+            'REVIEWS',
+            'REVIEW_CREATE_FAILED',
+            (tx) => this.repository.createReview({
+                stallId: positiveInteger(body.stallId),
+                userId: positiveInteger(body.userId),
+                rating,
+                comment: (comment as string | null | undefined) ?? null,
+            } as NewReview, tx),
+        );
     }
 
-    async deleteReview(id: number) {
-        const review = await this.repository.removeReview(id);
-        if (!review) throw new Error('REVIEW_NOT_FOUND');
-        return review;
+    async deleteReview(id: number, actor: AuditActor) {
+        return this.auditedMutation(
+            actor,
+            'DELETE_REVIEW',
+            'REVIEWS',
+            'REVIEW_NOT_FOUND',
+            (tx) => this.repository.removeReview(id, tx),
+        );
     }
 
-    async createLike(input: unknown) {
+    async createLike(input: unknown, actor: AuditActor) {
         const body = objectInput(input);
         const like = {
             reviewId: positiveInteger(body.reviewId),
             userId: positiveInteger(body.userId),
         };
-        return this.repository.createLike(like as NewLike);
+        return this.auditedMutation(
+            actor,
+            'CREATE_LIKE',
+            'LIKES',
+            'LIKE_CREATE_FAILED',
+            (tx) => this.repository.createLike(like as NewLike, tx),
+        );
     }
 
-    async deleteLike(id: number) {
-        const like = await this.repository.removeLike(id);
-        if (!like) throw new Error('LIKE_NOT_FOUND');
-        return like;
+    async deleteLike(id: number, actor: AuditActor) {
+        return this.auditedMutation(
+            actor,
+            'DELETE_LIKE',
+            'LIKES',
+            'LIKE_NOT_FOUND',
+            (tx) => this.repository.removeLike(id, tx),
+        );
     }
 
     async getFlags() {
         return this.repository.findFlags();
     }
 
-    async updateFlag(id: number, input: unknown) {
+    async updateFlag(id: number, input: unknown, actor: AuditActor) {
         const body = objectInput(input);
         const status = requiredString(body, 'status', 20);
-        const flag = await this.repository.updateFlag(id, status);
-        if (!flag) throw new Error('FLAG_NOT_FOUND');
-        return flag;
-    }
-
-    async getAuditLogs() {
-        return this.repository.findAuditLogs();
-    }
-
-    async createAuditLog(input: unknown) {
-        const body = objectInput(input);
-        const metadata = body.metadata;
-        if (metadata !== undefined && metadata !== null && typeof metadata !== 'string' && typeof metadata !== 'object') {
-            invalidInput();
-        }
-        const log = {
-            userId: positiveInteger(body.userId),
-            action: requiredString(body, 'action', 50),
-            targetTable: requiredString(body, 'targetTable', 50),
-            targetId: positiveInteger(body.targetId),
-            metadata: metadata == null ? null : typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
-        };
-        return this.repository.createAuditLog(log as NewAuditLog);
+        return this.auditedMutation(
+            actor,
+            'UPDATE_FLAG',
+            'FLAGS',
+            'FLAG_NOT_FOUND',
+            (tx) => this.repository.updateFlag(id, status, tx),
+        );
     }
 }

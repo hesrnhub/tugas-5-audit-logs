@@ -9,6 +9,7 @@
     "prestart": "npm run docs:gen",
     "dev": "tsx watch src/index.ts",
     "predev": "npm run docs:gen",
+    "test": "tsx --test tests/auditLogSchema.test.ts",
     "typecheck": "tsc --noEmit",
     "pretypecheck": "npm run docs:gen",
     "docs:gen": "tsx src/docs/swagger.ts"
